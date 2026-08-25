@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>萬聖節 AI 魔法鏡</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #1a1a1a; color: #fff; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px; }
+    h2 { margin-bottom: 10px; color: #ff9d00; }
+    .camera-container { position: relative; width: 100%; max-width: 400px; aspect-ratio: 3/4; border-radius: 16px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    video, canvas { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+    .sticker-overlay { position: absolute; bottom: 10px; right: 10px; width: 45%; pointer-events: none; z-index: 10; }
+    .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 400px; }
+    button { flex: 1; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    .btn-shoot { background: #ff9d00; color: #000; }
+    .btn-download { background: #00c853; color: #fff; display: none; }
+    .btn-retry { background: #555; color: #fff; display: none; }
+  </style>
+</head>
+<body>
+
+  <h2>🎃 萬聖節 AI 魔法鏡 🎃</h2>
+
+  <div class="camera-container">
+    <video id="video" autoplay playsinline></video>
+    <img id="sticker" class="sticker-overlay" src="xiong_ge.png" alt="雄哥貼紙">
+    <canvas id="canvas" style="display: none;"></canvas>
+  </div>
+
+  <div class="btn-group">
+    <button id="shootBtn" class="btn-shoot" onclick="takePhoto()">📸 拍照</button>
+    <button id="retryBtn" class="btn-retry" onclick="resetCamera()">🔄 重拍</button>
+    <button id="downloadBtn" class="btn-download" onclick="downloadPhoto()">💾 保存照片</button>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const sticker = document.getElementById('sticker');
+    const shootBtn = document.getElementById('shootBtn');
+    const retryBtn = document.getElementById('retryBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    // 啟動手機鏡頭
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1440 } }, 
+          audio: false 
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("無法讀取鏡頭，請確認是否已給予相機存取權限！");
+      }
+    }
+
+    // 拍照並合成 Canvas
+    function takePhoto() {
+      const ctx = canvas.getContext('2d');
+      canvas.width = video.videoWidth || 720;
+      canvas.height = video.videoHeight || 960;
+
+      // 繪製相機畫面
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 計算貼紙縮放與位置（右下角）
+      const stickerWidth = canvas.width * 0.45;
+      const stickerHeight = (sticker.naturalHeight / sticker.naturalWidth) * stickerWidth;
+      const x = canvas.width - stickerWidth - (canvas.width * 0.03);
+      const y = canvas.height - stickerHeight - (canvas.height * 0.03);
+
+      // 繪製雄哥貼紙
+      ctx.drawImage(sticker, x, y, stickerWidth, stickerHeight);
+
+      // 切換顯示模式
+      video.style.display = 'none';
+      sticker.style.display = 'none';
+      canvas.style.display = 'block';
+
+      shootBtn.style.display = 'none';
+      retryBtn.style.display = 'block';
+      downloadBtn.style.display = 'block';
+    }
+
+    // 重新拍照
+    function resetCamera() {
+      video.style.display = 'block';
+      sticker.style.display = 'block';
+      canvas.style.display = 'none';
+
+      shootBtn.style.display = 'block';
+      retryBtn.style.display = 'none';
+      downloadBtn.style.display = 'none';
+    }
+
+    // 下載照片
+    function downloadPhoto() {
+      const link = document.createElement('a');
+      link.download = '萬聖節雄哥合照.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    window.onload = initCamera;
+  </script>
+</body>
+</html>
