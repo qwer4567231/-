@@ -9,11 +9,11 @@
     body { font-family: sans-serif; background: #1a1a1a; color: #fff; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px; }
     h2 { margin-bottom: 10px; color: #ff9d00; }
     
-    /* 設定 9:16 直式黃金比例外框 */
+    /* 預覽外框：加大寬度上限，避免畫面太窄 */
     .camera-container { 
       position: relative; 
       width: 100%; 
-      max-width: 360px; 
+      max-width: 420px; 
       aspect-ratio: 9/16; 
       border-radius: 16px; 
       overflow: hidden; 
@@ -21,26 +21,28 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
     }
     
+    /* 改為 contain：完整顯示鏡頭所有畫面，不再強制放大裁切 */
     video, canvas { 
       width: 100%; 
       height: 100%; 
-      object-fit: cover; 
+      object-fit: contain; 
       position: absolute; 
       top: 0; 
       left: 0; 
+      background-color: #000;
     }
     
-    /* 雄哥貼紙固定放在左下角 (left: 10px, bottom: 10px) */
+    /* 雄哥貼紙固定放在左下角 */
     .sticker-overlay { 
       position: absolute; 
-      bottom: 10px; 
-      left: 10px; 
-      width: 45%; 
+      bottom: 12px; 
+      left: 12px; 
+      width: 40%; 
       pointer-events: none; 
       z-index: 10; 
     }
     
-    .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 360px; }
+    .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 420px; }
     button { flex: 1; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
     .btn-shoot { background: #ff9d00; color: #000; }
     .btn-download { background: #00c853; color: #fff; display: none; }
@@ -71,11 +73,11 @@
     const retryBtn = document.getElementById('retryBtn');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    // 啟動手機前鏡頭（優先調用高畫質直式比例）
+    // 啟動手機前鏡頭（不做強制硬性裁切限制）
     async function initCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 } }, 
+          video: { facingMode: 'user' }, 
           audio: false 
         });
         video.srcObject = stream;
@@ -84,47 +86,31 @@
       }
     }
 
-    // 拍照並合成直式 9:16 (16:9) 照片
+    // 拍照並將整個鏡頭畫面完全保留合成
     function takePhoto() {
       const ctx = canvas.getContext('2d');
       
-      // 強制輸出解析度為 1080x1920 (直式 16:9 / 9:16)
-      canvas.width = 1080;
-      canvas.height = 1920;
+      const vWidth = video.videoWidth || 720;
+      const vHeight = video.videoHeight || 1280;
 
-      // 計算畫面 Cover 裁切（避免影像變形拉伸）
-      const vWidth = video.videoWidth || 1080;
-      const vHeight = video.videoHeight || 1920;
-      const videoAspect = vWidth / vHeight;
-      const canvasAspect = canvas.width / canvas.height;
+      // 自動以相機實際解析度作為 Canvas 寬高，保留最完整的廣角畫面
+      canvas.width = vWidth;
+      canvas.height = vHeight;
 
-      let sx, sy, sWidth, sHeight;
-      if (videoAspect > canvasAspect) {
-        sHeight = vHeight;
-        sWidth = vHeight * canvasAspect;
-        sx = (vWidth - sWidth) / 2;
-        sy = 0;
-      } else {
-        sWidth = vWidth;
-        sHeight = vWidth / canvasAspect;
-        sx = 0;
-        sy = (vHeight - sHeight) / 2;
-      }
-
-      // 1. 繪製相機畫面（滿版不拉伸）
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+      // 1. 完整繪製相機捕獲的所有畫面（不縮放、不裁切人像）
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       // 2. 計算左下角雄哥貼紙的大小與位置
-      const stickerWidth = canvas.width * 0.45; // 寬度占畫面的 45%
+      const stickerWidth = canvas.width * 0.40; // 寬度占畫面的 40%
       const stickerHeight = (sticker.naturalHeight / sticker.naturalWidth) * stickerWidth;
       
-      const x = canvas.width * 0.03; // 靠左邊距離 3%
-      const y = canvas.height - stickerHeight - (canvas.height * 0.02); // 靠下邊距離 2%
+      const x = canvas.width * 0.03; // 靠左距離 3%
+      const y = canvas.height - stickerHeight - (canvas.height * 0.02); // 靠下距離 2%
 
       // 3. 將雄哥貼紙繪製在左下角
       ctx.drawImage(sticker, x, y, stickerWidth, stickerHeight);
 
-      // 切換視窗顯示
+      // 切換顯示
       video.style.display = 'none';
       sticker.style.display = 'none';
       canvas.style.display = 'block';
@@ -145,7 +131,7 @@
       downloadBtn.style.display = 'none';
     }
 
-    // 下載高畫質直式照片
+    // 下載照片
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節雄哥合照.png';
