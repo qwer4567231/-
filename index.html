@@ -34,35 +34,6 @@
       left: 0; 
       background-color: #000;
     }
-
-    /* 全畫面相框圖層 */
-    .frame-overlay { 
-      position: absolute; 
-      top: 0; 
-      left: 0; 
-      width: 100%; 
-      height: 100%; 
-      pointer-events: none; 
-      z-index: 10; 
-      object-fit: fill;
-    }
-
-    /* 頂部隨機標語文字圖層 */
-    .slogan-overlay {
-      position: absolute;
-      top: 2.8%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 80%;
-      z-index: 20;
-      pointer-events: none;
-      font-size: 20px;
-      font-weight: 900;
-      color: #5d2800;
-      text-align: center;
-      letter-spacing: 1px;
-      text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.6);
-    }
     
     .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 420px; }
     button { flex: 1; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
@@ -78,10 +49,6 @@
   <div class="camera-container">
     <video id="video" playsinline></video>
     <canvas id="output_canvas"></canvas>
-    <!-- 全畫面相框 -->
-    <img id="frame_img" class="frame-overlay" src="frame.png" alt="萬聖節外框">
-    <!-- 隨機標語文字顯示區 -->
-    <div id="slogan_box" class="slogan-overlay"></div>
   </div>
 
   <div class="btn-group">
@@ -94,8 +61,10 @@
     const videoElement = document.getElementById('video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
-    const frameImg = document.getElementById('frame_img');
-    const sloganBox = document.getElementById('slogan_box');
+
+    // 預先載入相框圖片
+    const frameImage = new Image();
+    frameImage.src = 'frame.png';
 
     // 特效圖片清單
     const effectSources = [
@@ -127,7 +96,6 @@
 
       const randomSloganIndex = Math.floor(Math.random() * slogans.length);
       currentSlogan = slogans[randomSloganIndex];
-      sloganBox.innerText = currentSlogan;
     }
 
     setRandomEffectAndSlogan();
@@ -148,16 +116,15 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 水平翻轉畫布
+      // 水平翻轉畫布（校正前鏡頭）
       canvasCtx.translate(canvasElement.width, 0);
       canvasCtx.scale(-1, 1);
 
       // 1. 繪製鏡頭視角
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 2. 人臉辨識與特效貼圖
+      // 2. 人臉辨識與特效貼圖（使用左臉 187，右臉 411）
       if (results.multiFaceLandmarks && currentDecor.complete && currentDecor.naturalWidth !== 0) {
-        
         let baseScale = 0.08;
         if (currentDecorFileName === 'bat.png') {
           baseScale = 0.12;
@@ -167,7 +134,6 @@
         const FIX_HEIGHT = (currentDecor.naturalHeight / currentDecor.naturalWidth) * FIX_WIDTH;
 
         results.multiFaceLandmarks.forEach((landmarks, index) => {
-          // 使用你調整好的節點：左臉 187，右臉 411
           const leftTargetX = landmarks[187].x * canvasElement.width;
           const leftTargetY = landmarks[187].y * canvasElement.height;
           const rightTargetX = landmarks[411].x * canvasElement.width;
@@ -194,7 +160,24 @@
         prevPositions.length = 0;
       }
 
+      // 恢復畫布正向（不受鏡頭水平翻轉影響，讓相框和文字正常顯示）
       canvasCtx.restore();
+
+      // 3. 繪製相框（直接畫在 Canvas 上）
+      if (frameImage.complete && frameImage.naturalWidth !== 0) {
+        canvasCtx.drawImage(frameImage, 0, 0, canvasElement.width, canvasElement.height);
+      }
+
+      // 4. 繪製頂部隨機標語文字（直接畫在 Canvas 上，預覽與拍照大小完全一致）
+      if (currentSlogan) {
+        canvasCtx.save();
+        canvasCtx.font = "bold " + (canvasElement.width * 0.055) + "px sans-serif";
+        canvasCtx.fillStyle = "#5d2800";
+        canvasCtx.textAlign = "center";
+        canvasCtx.textBaseline = "middle";
+        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.045);
+        canvasCtx.restore();
+      }
     }
 
     // 初始化人臉追蹤
@@ -219,24 +202,9 @@
     });
     camera.start();
 
-    // 拍照按鈕
+    // 拍照按鈕：直接凍結畫面，因為預覽就是最終畫面
     function takePhoto() {
       isPaused = true;
-
-      // 1. 合成相框
-      canvasCtx.drawImage(frameImg, 0, 0, canvasElement.width, canvasElement.height);
-
-      // 2. 合成標語文字
-      canvasCtx.save();
-      canvasCtx.font = "bold " + (canvasElement.width * 0.07) + "px sans-serif";
-      canvasCtx.fillStyle = "#5d2800";
-      canvasCtx.textAlign = "center";
-      canvasCtx.textBaseline = "middle";
-      canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.048);
-      canvasCtx.restore();
-
-      frameImg.style.display = 'none';
-      sloganBox.style.display = 'none';
 
       document.getElementById('shootBtn').style.display = 'none';
       document.getElementById('retryBtn').style.display = 'block';
@@ -248,8 +216,6 @@
       setRandomEffectAndSlogan();
       prevPositions.length = 0;
       isPaused = false;
-      frameImg.style.display = 'block';
-      sloganBox.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
       document.getElementById('retryBtn').style.display = 'none';
       document.getElementById('downloadBtn').style.display = 'none';
