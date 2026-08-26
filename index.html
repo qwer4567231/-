@@ -35,7 +35,7 @@
       background-color: #000;
     }
 
-    /* 萬聖節框框圖層 */
+    /* 全畫面相框圖層 */
     .frame-overlay { 
       position: absolute; 
       top: 0; 
@@ -45,6 +45,23 @@
       pointer-events: none; 
       z-index: 10; 
       object-fit: fill;
+    }
+
+    /* 頂部隨機標語文字圖層 */
+    .slogan-overlay {
+      position: absolute;
+      top: 2.8%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      z-index: 20;
+      pointer-events: none;
+      font-size: 20px;
+      font-weight: 900;
+      color: #5d2800;
+      text-align: center;
+      letter-spacing: 1px;
+      text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.6);
     }
     
     .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 420px; }
@@ -63,6 +80,8 @@
     <canvas id="output_canvas"></canvas>
     <!-- 全畫面相框 -->
     <img id="frame_img" class="frame-overlay" src="frame.png" alt="萬聖節外框">
+    <!-- 隨機標語文字顯示區 -->
+    <div id="slogan_box" class="slogan-overlay"></div>
   </div>
 
   <div class="btn-group">
@@ -76,6 +95,7 @@
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
     const frameImg = document.getElementById('frame_img');
+    const sloganBox = document.getElementById('slogan_box');
 
     // 特效圖片清單
     const effectSources = [
@@ -86,17 +106,31 @@
       'candy.png'
     ];
 
+    // 頂部隨機標語清單
+    const slogans = [
+      "🎃 不給發票就搗蛋！",
+      "👻 雲端發票 萬聖神奇！",
+      "🍬 載具存發票 糖果滿滿拿",
+      "🧙‍♀️ 租稅魔法 快樂過萬聖",
+      "✨ 發票存雲端 中獎最靈驗"
+    ];
+
     let currentDecor = new Image();
     let currentDecorFileName = '';
+    let currentSlogan = '';
 
-    // 隨機切換特效圖案
-    function setRandomEffect() {
-      const randomIndex = Math.floor(Math.random() * effectSources.length);
-      currentDecorFileName = effectSources[randomIndex];
+    // 隨機切換特效圖案與標語
+    function setRandomEffectAndSlogan() {
+      const randomEffectIndex = Math.floor(Math.random() * effectSources.length);
+      currentDecorFileName = effectSources[randomEffectIndex];
       currentDecor.src = currentDecorFileName;
+
+      const randomSloganIndex = Math.floor(Math.random() * slogans.length);
+      currentSlogan = slogans[randomSloganIndex];
+      sloganBox.innerText = currentSlogan;
     }
 
-    setRandomEffect();
+    setRandomEffectAndSlogan();
 
     let isPaused = false;
     let camera = null;
@@ -124,10 +158,7 @@
       // 2. 人臉辨識與特效貼圖
       if (results.multiFaceLandmarks && currentDecor.complete && currentDecor.naturalWidth !== 0) {
         
-        // 基礎寬度：一般特效固定為 0.08
         let baseScale = 0.08;
-        
-        // 蝙蝠單獨放大 1.5 倍
         if (currentDecorFileName === 'bat.png') {
           baseScale = 0.12;
         }
@@ -136,13 +167,12 @@
         const FIX_HEIGHT = (currentDecor.naturalHeight / currentDecor.naturalWidth) * FIX_WIDTH;
 
         results.multiFaceLandmarks.forEach((landmarks, index) => {
-          // 選取 234 號與 454 號點：位在兩側蘋果肌/臉頰中間，位置適中
+          // 使用你調整好的節點：左臉 187，右臉 411
           const leftTargetX = landmarks[187].x * canvasElement.width;
           const leftTargetY = landmarks[187].y * canvasElement.height;
           const rightTargetX = landmarks[411].x * canvasElement.width;
           const rightTargetY = landmarks[411].y * canvasElement.height;
 
-          // 初始化平滑座標
           if (!prevPositions[index]) {
             prevPositions[index] = { 
               lx: leftTargetX, ly: leftTargetY, 
@@ -150,7 +180,6 @@
             };
           }
 
-          // 平滑化算法
           prevPositions[index].lx += (leftTargetX - prevPositions[index].lx) * SMOOTHING;
           prevPositions[index].ly += (leftTargetY - prevPositions[index].ly) * SMOOTHING;
           prevPositions[index].rx += (rightTargetX - prevPositions[index].rx) * SMOOTHING;
@@ -158,7 +187,6 @@
 
           const p = prevPositions[index];
 
-          // 繪製兩側臉頰特效
           canvasCtx.drawImage(currentDecor, p.lx - (FIX_WIDTH / 2), p.ly - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
           canvasCtx.drawImage(currentDecor, p.rx - (FIX_WIDTH / 2), p.ry - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
         });
@@ -194,8 +222,21 @@
     // 拍照按鈕
     function takePhoto() {
       isPaused = true;
+
+      // 1. 合成相框
       canvasCtx.drawImage(frameImg, 0, 0, canvasElement.width, canvasElement.height);
+
+      // 2. 合成標語文字
+      canvasCtx.save();
+      canvasCtx.font = "bold " + (canvasElement.width * 0.048) + "px sans-serif";
+      canvasCtx.fillStyle = "#5d2800";
+      canvasCtx.textAlign = "center";
+      canvasCtx.textBaseline = "middle";
+      canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.048);
+      canvasCtx.restore();
+
       frameImg.style.display = 'none';
+      sloganBox.style.display = 'none';
 
       document.getElementById('shootBtn').style.display = 'none';
       document.getElementById('retryBtn').style.display = 'block';
@@ -204,10 +245,11 @@
 
     // 重拍按鈕
     function resetCamera() {
-      setRandomEffect();
+      setRandomEffectAndSlogan();
       prevPositions.length = 0;
       isPaused = false;
       frameImg.style.display = 'block';
+      sloganBox.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
       document.getElementById('retryBtn').style.display = 'none';
       document.getElementById('downloadBtn').style.display = 'none';
