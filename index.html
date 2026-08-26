@@ -34,8 +34,17 @@
       left: 0; 
       background-color: #000;
     }
+
+    /* 雄哥貼紙層：永遠獨立疊在左下角，完全不受 Canvas 翻轉影響 */
+    .sticker-overlay { 
+      position: absolute; 
+      bottom: 12px; 
+      left: 12px; 
+      width: 35%; 
+      pointer-events: none; 
+      z-index: 10; 
+    }
     
-    .sticker-overlay { position: absolute; bottom: 12px; left: 12px; width: 35%; pointer-events: none; z-index: 10; }
     .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 420px; }
     button { flex: 1; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
     .btn-shoot { background: #ff9d00; color: #000; }
@@ -50,7 +59,7 @@
   <div class="camera-container">
     <video id="video" playsinline></video>
     <canvas id="output_canvas"></canvas>
-    <!-- 左下角固定萬聖節雄哥 -->
+    <!-- 左下角固定萬聖節雄哥（透過 HTML/CSS 壓在最上層，方向絕對永遠正確） -->
     <img id="xiong_ge" class="sticker-overlay" src="xiong_ge.png" alt="雄哥貼紙">
   </div>
 
@@ -82,14 +91,14 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 強制反向翻轉，修正前置鏡頭預設的鏡像效果
+      // 水平翻轉畫布，校正前置鏡頭預設視角
       canvasCtx.translate(canvasElement.width, 0);
       canvasCtx.scale(-1, 1);
 
-      // 1. 繪製鏡頭原圖
+      // 1. 繪製鏡頭視角
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 2. 人臉辨識：定位兩側臉頰
+      // 2. 人臉辨識：定位兩側臉頰蝙蝠特效
       if (results.multiFaceLandmarks) {
         for (const landmarks of results.multiFaceLandmarks) {
           const leftCheekLower = landmarks[205];
@@ -114,20 +123,6 @@
           canvasCtx.drawImage(batDecor, rightX - (batWidth / 2), rightY - (batHeight / 2), batWidth, batHeight);
         }
       }
-
-      // 3. 繪製左下角雄哥（翻轉回正常方向以確保圖案/文字方向正確）
-      canvasCtx.restore(); // 恢復正常座標軸
-      canvasCtx.save();
-
-      const xiongWidth = canvasElement.width * 0.35;
-      const xiongHeight = (xiongGe.naturalHeight / xiongGe.naturalWidth) * xiongWidth;
-      canvasCtx.drawImage(
-        xiongGe, 
-        canvasElement.width * 0.03, 
-        canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
-        xiongWidth, 
-        xiongHeight
-      );
 
       canvasCtx.restore();
     }
@@ -154,16 +149,31 @@
     });
     camera.start();
 
-    // 拍照按鈕
+    // 拍照：凍結 Canvas 並把雄哥貼紙合進 Canvas 輸出檔中
     function takePhoto() {
       isPaused = true;
+
+      // 在產圖當下，把方向正確的雄哥貼紙合成進去
+      const xiongWidth = canvasElement.width * 0.35;
+      const xiongHeight = (xiongGe.naturalHeight / xiongGe.naturalWidth) * xiongWidth;
+      
+      canvasCtx.drawImage(
+        xiongGe, 
+        canvasElement.width * 0.03, 
+        canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
+        xiongWidth, 
+        xiongHeight
+      );
+
+      // 隱藏獨立貼紙元件，避重疊
       xiongGe.style.display = 'none';
+
       document.getElementById('shootBtn').style.display = 'none';
       document.getElementById('retryBtn').style.display = 'block';
       document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 重拍按鈕
+    // 重拍：恢復即時預覽與獨立貼紙
     function resetCamera() {
       isPaused = false;
       xiongGe.style.display = 'block';
@@ -172,7 +182,7 @@
       document.getElementById('downloadBtn').style.display = 'none';
     }
 
-    // 下載照片
+    // 保存照片
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節變身合照.png';
