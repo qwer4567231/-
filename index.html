@@ -105,7 +105,7 @@
 
     // 平滑座標歷史紀錄（防抖動，包含角度 angle）
     const prevPositions = [];
-    const SMOOTHING = 0.25;
+    const SMOOTHING = 0.4;
 
     function onResults(results) {
       if (isPaused) return;
@@ -195,7 +195,7 @@
         canvasCtx.fillStyle = "#5d2800";
         canvasCtx.textAlign = "center";
         canvasCtx.textBaseline = "middle";
-        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.075);
+        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.060);
         canvasCtx.restore();
       }
     }
