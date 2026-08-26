@@ -35,7 +35,7 @@
       background-color: #000;
     }
 
-    /* 萬聖節框框圖層：獨立覆蓋在最上層 */
+    /* 萬聖節框框圖層 */
     .frame-overlay { 
       position: absolute; 
       top: 0; 
@@ -127,7 +127,7 @@
         // 基礎寬度：一般特效固定為 0.08
         let baseScale = 0.08;
         
-        // 蝙蝠單獨放大 1.5 倍（變 0.12）
+        // 蝙蝠單獨放大 1.5 倍
         if (currentDecorFileName === 'bat.png') {
           baseScale = 0.12;
         }
@@ -136,11 +136,11 @@
         const FIX_HEIGHT = (currentDecor.naturalHeight / currentDecor.naturalWidth) * FIX_WIDTH;
 
         results.multiFaceLandmarks.forEach((landmarks, index) => {
-          // 選取較外側的臉頰關鍵點（132 號與 361 號點更偏向臉頰兩側外圍，離鼻翼更遠）
-          const leftTargetX = landmarks[132].x * canvasElement.width;
-          const leftTargetY = landmarks[132].y * canvasElement.height;
-          const rightTargetX = landmarks[361].x * canvasElement.width;
-          const rightTargetY = landmarks[361].y * canvasElement.height;
+          // 選取 234 號與 454 號點：位在兩側蘋果肌/臉頰中間，位置適中
+          const leftTargetX = landmarks[234].x * canvasElement.width;
+          const leftTargetY = landmarks[234].y * canvasElement.height;
+          const rightTargetX = landmarks[454].x * canvasElement.width;
+          const rightTargetY = landmarks[454].y * canvasElement.height;
 
           // 初始化平滑座標
           if (!prevPositions[index]) {
@@ -158,10 +158,8 @@
 
           const p = prevPositions[index];
 
-          // 繪製左臉頰外側特效
+          // 繪製兩側臉頰特效
           canvasCtx.drawImage(currentDecor, p.lx - (FIX_WIDTH / 2), p.ly - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
-
-          // 繪製右臉頰外側特效
           canvasCtx.drawImage(currentDecor, p.rx - (FIX_WIDTH / 2), p.ry - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
         });
       } else {
