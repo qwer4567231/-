@@ -171,11 +171,11 @@
       // 4. 繪製頂部隨機標語文字（直接畫在 Canvas 上，預覽與拍照大小完全一致）
       if (currentSlogan) {
         canvasCtx.save();
-        canvasCtx.font = "bold " + (canvasElement.width * 0.055) + "px sans-serif";
+        canvasCtx.font = "bold " + (canvasElement.width * 0.060) + "px sans-serif";
         canvasCtx.fillStyle = "#5d2800";
         canvasCtx.textAlign = "center";
         canvasCtx.textBaseline = "middle";
-        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.045);
+        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.050);
         canvasCtx.restore();
       }
     }
