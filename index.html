@@ -137,7 +137,7 @@
 
     // 平滑座標歷史紀錄（防抖動）
     const prevPositions = [];
-    const SMOOTHING = 0.25;
+    const SMOOTHING = 0.4;
 
     function onResults(results) {
       if (isPaused) return;
@@ -228,7 +228,7 @@
 
       // 2. 合成標語文字
       canvasCtx.save();
-      canvasCtx.font = "bold " + (canvasElement.width * 0.08) + "px sans-serif";
+      canvasCtx.font = "bold " + (canvasElement.width * 0.07) + "px sans-serif";
       canvasCtx.fillStyle = "#5d2800";
       canvasCtx.textAlign = "center";
       canvasCtx.textBaseline = "middle";
