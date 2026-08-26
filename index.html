@@ -137,10 +137,10 @@
 
         results.multiFaceLandmarks.forEach((landmarks, index) => {
           // 選取 234 號與 454 號點：位在兩側蘋果肌/臉頰中間，位置適中
-          const leftTargetX = landmarks[205].x * canvasElement.width;
-          const leftTargetY = landmarks[205].y * canvasElement.height;
-          const rightTargetX = landmarks[425].x * canvasElement.width;
-          const rightTargetY = landmarks[425].y * canvasElement.height;
+          const leftTargetX = landmarks[187].x * canvasElement.width;
+          const leftTargetY = landmarks[187].y * canvasElement.height;
+          const rightTargetX = landmarks[411].x * canvasElement.width;
+          const rightTargetY = landmarks[411].y * canvasElement.height;
 
           // 初始化平滑座標
           if (!prevPositions[index]) {
