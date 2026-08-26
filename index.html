@@ -35,14 +35,16 @@
       background-color: #000;
     }
 
-    /* 雄哥貼紙層：永遠獨立疊在左下角，完全不受 Canvas 翻轉影響 */
-    .sticker-overlay { 
+    /* 萬聖節框框圖層：永遠獨立覆蓋在最上層，文字與雄哥保證永遠是正的 */
+    .frame-overlay { 
       position: absolute; 
-      bottom: 12px; 
-      left: 12px; 
-      width: 35%; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
       pointer-events: none; 
       z-index: 10; 
+      object-fit: fill;
     }
     
     .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 420px; }
@@ -59,8 +61,8 @@
   <div class="camera-container">
     <video id="video" playsinline></video>
     <canvas id="output_canvas"></canvas>
-    <!-- 左下角固定萬聖節雄哥（透過 HTML/CSS 壓在最上層，方向絕對永遠正確） -->
-    <img id="xiong_ge" class="sticker-overlay" src="xiong_ge.png" alt="雄哥貼紙">
+    <!-- 全畫面相框 (請確保檔名為 frame.png 且中間為透明背景) -->
+    <img id="frame_img" class="frame-overlay" src="frame.png" alt="萬聖節外框">
   </div>
 
   <div class="btn-group">
@@ -77,7 +79,7 @@
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
     const batDecor = document.getElementById('bat_decor');
-    const xiongGe = document.getElementById('xiong_ge');
+    const frameImg = document.getElementById('frame_img');
 
     let isPaused = false;
     let camera = null;
@@ -149,34 +151,25 @@
     });
     camera.start();
 
-    // 拍照：凍結 Canvas 並把雄哥貼紙合進 Canvas 輸出檔中
+    // 拍照：凍結 Canvas 並將全畫面相框合成進去
     function takePhoto() {
       isPaused = true;
 
-      // 在產圖當下，把方向正確的雄哥貼紙合成進去
-      const xiongWidth = canvasElement.width * 0.35;
-      const xiongHeight = (xiongGe.naturalHeight / xiongGe.naturalWidth) * xiongWidth;
-      
-      canvasCtx.drawImage(
-        xiongGe, 
-        canvasElement.width * 0.03, 
-        canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
-        xiongWidth, 
-        xiongHeight
-      );
+      // 在產圖當下，將方向完全正確的框框合成到 Canvas 最上層
+      canvasCtx.drawImage(frameImg, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 隱藏獨立貼紙元件，避重疊
-      xiongGe.style.display = 'none';
+      // 隱藏 HTML 上的獨立框框圖層避免疊加
+      frameImg.style.display = 'none';
 
       document.getElementById('shootBtn').style.display = 'none';
       document.getElementById('retryBtn').style.display = 'block';
       document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 重拍：恢復即時預覽與獨立貼紙
+    // 重拍：恢復即時預覽與獨立框框圖層
     function resetCamera() {
       isPaused = false;
-      xiongGe.style.display = 'block';
+      frameImg.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
       document.getElementById('retryBtn').style.display = 'none';
       document.getElementById('downloadBtn').style.display = 'none';
