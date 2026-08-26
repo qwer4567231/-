@@ -103,9 +103,9 @@
     let isPaused = false;
     let camera = null;
 
-    // 平滑座標歷史紀錄（防抖動）
+    // 平滑座標歷史紀錄（防抖動，包含角度 angle）
     const prevPositions = [];
-    const SMOOTHING = 0.4;
+    const SMOOTHING = 0.25;
 
     function onResults(results) {
       if (isPaused) return;
@@ -116,7 +116,7 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 水平翻轉畫布（校正前鏡頭）
+      // 水平翻轉畫布（校正前鏡頭預設視角）
       canvasCtx.translate(canvasElement.width, 0);
       canvasCtx.scale(-1, 1);
 
@@ -139,43 +139,63 @@
           const rightTargetX = landmarks[411].x * canvasElement.width;
           const rightTargetY = landmarks[411].y * canvasElement.height;
 
+          // 計算頭部傾斜角度（根據左右臉兩點的斜率）
+          // 因為鏡頭經過 scale(-1, 1) 翻轉，dx 方向需要特別處理
+          const dx = rightTargetX - leftTargetX;
+          const dy = rightTargetY - leftTargetY;
+          const targetAngle = Math.atan2(dy, dx);
+
           if (!prevPositions[index]) {
             prevPositions[index] = { 
               lx: leftTargetX, ly: leftTargetY, 
-              rx: rightTargetX, ry: rightTargetY 
+              rx: rightTargetX, ry: rightTargetY,
+              angle: targetAngle
             };
           }
 
+          // 平滑化算法（含角度平滑，避免特效轉動時閃爍抖動）
           prevPositions[index].lx += (leftTargetX - prevPositions[index].lx) * SMOOTHING;
           prevPositions[index].ly += (leftTargetY - prevPositions[index].ly) * SMOOTHING;
           prevPositions[index].rx += (rightTargetX - prevPositions[index].rx) * SMOOTHING;
           prevPositions[index].ry += (rightTargetY - prevPositions[index].ry) * SMOOTHING;
+          prevPositions[index].angle += (targetAngle - prevPositions[index].angle) * SMOOTHING;
 
           const p = prevPositions[index];
 
-          canvasCtx.drawImage(currentDecor, p.lx - (FIX_WIDTH / 2), p.ly - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
-          canvasCtx.drawImage(currentDecor, p.rx - (FIX_WIDTH / 2), p.ry - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
+          // 繪製左臉貼紙（原點移至貼紙中心並依頭部角度旋轉）
+          canvasCtx.save();
+          canvasCtx.translate(p.lx, p.ly);
+          canvasCtx.rotate(p.angle);
+          canvasCtx.drawImage(currentDecor, -FIX_WIDTH / 2, -FIX_HEIGHT / 2, FIX_WIDTH, FIX_HEIGHT);
+          canvasCtx.restore();
+
+          // 繪製右臉貼紙（原點移至貼紙中心並依頭部角度旋轉）
+          canvasCtx.save();
+          canvasCtx.translate(p.rx, p.ry);
+          canvasCtx.rotate(p.angle);
+          canvasCtx.drawImage(currentDecor, -FIX_WIDTH / 2, -FIX_HEIGHT / 2, FIX_WIDTH, FIX_HEIGHT);
+          canvasCtx.restore();
         });
       } else {
         prevPositions.length = 0;
       }
 
-      // 恢復畫布正向（不受鏡頭水平翻轉影響，讓相框和文字正常顯示）
+      // 恢復畫布正向（讓相框和文字維持正向顯示）
       canvasCtx.restore();
 
-      // 3. 繪製相框（直接畫在 Canvas 上）
+      // 3. 繪製相框
       if (frameImage.complete && frameImage.naturalWidth !== 0) {
         canvasCtx.drawImage(frameImage, 0, 0, canvasElement.width, canvasElement.height);
       }
 
-      // 4. 繪製頂部隨機標語文字（直接畫在 Canvas 上，預覽與拍照大小完全一致）
+      // 4. 繪製頂部隨機標語文字
       if (currentSlogan) {
         canvasCtx.save();
-        canvasCtx.font = "bold " + (canvasElement.width * 0.060) + "px sans-serif";
+        canvasCtx.font = "bold " + (canvasElement.width * 0.075) + "px sans-serif";
         canvasCtx.fillStyle = "#5d2800";
         canvasCtx.textAlign = "center";
         canvasCtx.textBaseline = "middle";
-        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.050);
+        canvasCtx.fillText(currentSlogan, canvasElement.width * 0.5, canvasElement.height * 0.075);
         canvasCtx.restore();
       }
     }
@@ -202,7 +222,7 @@
     });
     camera.start();
 
-    // 拍照按鈕：直接凍結畫面，因為預覽就是最終畫面
+    // 拍照按鈕
     function takePhoto() {
       isPaused = true;
 
