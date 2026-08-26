@@ -25,7 +25,7 @@
     
     video { display: none; }
     
-    /* 預覽時預設加入鏡像效果（像照鏡子一樣） */
+    /* 完全原生視角，不做任何鏡像翻轉 */
     canvas { 
       width: 100%; 
       height: 100%; 
@@ -34,12 +34,6 @@
       top: 0; 
       left: 0; 
       background-color: #000;
-      transform: scaleX(-1); /* 照鏡子效果 */
-    }
-
-    /* 拍照凍結後移除 CSS 鏡像，顯示真實拍攝照片 */
-    canvas.no-mirror {
-      transform: scaleX(1) !important;
     }
     
     .sticker-overlay { position: absolute; bottom: 12px; left: 12px; width: 35%; pointer-events: none; z-index: 10; }
@@ -89,7 +83,7 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 1. 繪製鏡頭原圖（畫布內部保持標準真實視角）
+      // 1. 繪製鏡頭原圖（完全不鏡像）
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
       // 2. 人臉辨識：定位靠近鼻孔平行的兩側臉頰
@@ -154,27 +148,25 @@
     });
     camera.start();
 
-    // 拍照按鈕：凍結畫面並移除 CSS 鏡像（還原真實照片視角）
+    // 拍照按鈕：直接凍結目前畫面
     function takePhoto() {
       isPaused = true;
-      canvasElement.classList.add('no-mirror'); // 移除鏡像
       xiongGe.style.display = 'none';
       document.getElementById('shootBtn').style.display = 'none';
       document.getElementById('retryBtn').style.display = 'block';
       document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 重拍按鈕：恢復鏡樣預覽
+    // 重拍按鈕
     function resetCamera() {
       isPaused = false;
-      canvasElement.classList.remove('no-mirror'); // 恢復預覽鏡像
       xiongGe.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
       document.getElementById('retryBtn').style.display = 'none';
       document.getElementById('downloadBtn').style.display = 'none';
     }
 
-    // 下載照片（輸出未鏡像的真實照片）
+    // 下載照片
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節變身合照.png';
