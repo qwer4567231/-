@@ -77,7 +77,7 @@
     const canvasCtx = canvasElement.getContext('2d');
     const frameImg = document.getElementById('frame_img');
 
-    // 1. 特效圖片清單
+    // 特效圖片清單
     const effectSources = [
       'bat.png',
       'pumpkin.png',
@@ -87,11 +87,13 @@
     ];
 
     let currentDecor = new Image();
+    let currentDecorFileName = '';
 
     // 隨機切換特效圖案
     function setRandomEffect() {
       const randomIndex = Math.floor(Math.random() * effectSources.length);
-      currentDecor.src = effectSources[randomIndex];
+      currentDecorFileName = effectSources[randomIndex];
+      currentDecor.src = currentDecorFileName;
     }
 
     setRandomEffect();
@@ -99,9 +101,9 @@
     let isPaused = false;
     let camera = null;
 
-    // 用於記錄上一次臉頰座標，實現平滑化（減緩抖動）
+    // 平滑座標歷史紀錄（防抖動）
     const prevPositions = [];
-    const SMOOTHING = 0.25; // 平滑係數，越小越平滑但跟隨稍慢，0.2 ~ 0.3 為最佳平衡
+    const SMOOTHING = 0.25;
 
     function onResults(results) {
       if (isPaused) return;
@@ -122,18 +124,25 @@
       // 2. 人臉辨識與特效貼圖
       if (results.multiFaceLandmarks && currentDecor.complete && currentDecor.naturalWidth !== 0) {
         
-        // 固定特效的大小（可依實際視覺微調）
-        // 以 720p 寬度為基準，固定寬度約 55 像素，高度依照原圖比例
-        const FIX_WIDTH = canvasElement.width * 0.08; 
+        // 基礎寬度：一般特效固定為 0.08
+        let baseScale = 0.08;
+        
+        // 蝙蝠單獨放大 1.5 倍（變 0.12）
+        if (currentDecorFileName === 'bat.png') {
+          baseScale = 0.12;
+        }
+
+        const FIX_WIDTH = canvasElement.width * baseScale; 
         const FIX_HEIGHT = (currentDecor.naturalHeight / currentDecor.naturalWidth) * FIX_WIDTH;
 
         results.multiFaceLandmarks.forEach((landmarks, index) => {
-          const leftTargetX = landmarks[205].x * canvasElement.width;
-          const leftTargetY = landmarks[205].y * canvasElement.height;
-          const rightTargetX = landmarks[425].x * canvasElement.width;
-          const rightTargetY = landmarks[425].y * canvasElement.height;
+          // 選取較外側的臉頰關鍵點（132 號與 361 號點更偏向臉頰兩側外圍，離鼻翼更遠）
+          const leftTargetX = landmarks[132].x * canvasElement.width;
+          const leftTargetY = landmarks[132].y * canvasElement.height;
+          const rightTargetX = landmarks[361].x * canvasElement.width;
+          const rightTargetY = landmarks[361].y * canvasElement.height;
 
-          // 初始化平滑座標記錄
+          // 初始化平滑座標
           if (!prevPositions[index]) {
             prevPositions[index] = { 
               lx: leftTargetX, ly: leftTargetY, 
@@ -141,7 +150,7 @@
             };
           }
 
-          // 平滑化公式（加權移動平均，解決抖動）
+          // 平滑化算法
           prevPositions[index].lx += (leftTargetX - prevPositions[index].lx) * SMOOTHING;
           prevPositions[index].ly += (leftTargetY - prevPositions[index].ly) * SMOOTHING;
           prevPositions[index].rx += (rightTargetX - prevPositions[index].rx) * SMOOTHING;
@@ -149,14 +158,13 @@
 
           const p = prevPositions[index];
 
-          // 繪製左臉頰固定大小特效
+          // 繪製左臉頰外側特效
           canvasCtx.drawImage(currentDecor, p.lx - (FIX_WIDTH / 2), p.ly - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
 
-          // 繪製右臉頰固定大小特效
+          // 繪製右臉頰外側特效
           canvasCtx.drawImage(currentDecor, p.rx - (FIX_WIDTH / 2), p.ry - (FIX_HEIGHT / 2), FIX_WIDTH, FIX_HEIGHT);
         });
       } else {
-        // 沒有偵測到人臉時清空歷史紀錄
         prevPositions.length = 0;
       }
 
@@ -199,7 +207,7 @@
     // 重拍按鈕
     function resetCamera() {
       setRandomEffect();
-      prevPositions.length = 0; // 重設平滑座標
+      prevPositions.length = 0;
       isPaused = false;
       frameImg.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
