@@ -50,6 +50,7 @@
     const xiongGe = document.getElementById('xiong_ge');
 
     let isPaused = false;
+    let isMirrorOnSave = false; // 控制是否在最後產圖時進行鏡像翻轉
     let camera = null;
 
     function onResults(results) {
@@ -60,18 +61,22 @@
 
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      
+
+      // 若觸發拍照，進行水平鏡像翻轉
+      if (isMirrorOnSave) {
+        canvasCtx.translate(canvasElement.width, 0);
+        canvasCtx.scale(-1, 1);
+      }
+
       // 1. 繪製鏡頭畫面
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 2. 人臉辨識：定位靠近鼻孔平行的兩側臉頰
+      // 2. 人臉辨識：定位鼻孔平行的臉頰兩側
       if (results.multiFaceLandmarks) {
         for (const landmarks of results.multiFaceLandmarks) {
-          // 修改關鍵點位：左鼻翼兩側臉頰 (Index 205)、右鼻翼兩側臉頰 (Index 425)
           const leftCheekLower = landmarks[205];
           const rightCheekLower = landmarks[425];
 
-          // 眼睛距離用來動態計算蝙蝠大小
           const leftEye = landmarks[33];
           const rightEye = landmarks[263];
           const eyeDistance = Math.hypot(
@@ -79,32 +84,43 @@
             (rightEye.y - leftEye.y) * canvasElement.height
           );
 
-          // 計算單隻蝙蝠寬度
           const batWidth = eyeDistance * 0.42;
           const batHeight = (batDecor.naturalHeight / batDecor.naturalWidth) * batWidth;
 
-          // 繪製左鼻翼兩側蝙蝠
           const leftX = leftCheekLower.x * canvasElement.width;
           const leftY = leftCheekLower.y * canvasElement.height;
           canvasCtx.drawImage(batDecor, leftX - (batWidth / 2), leftY - (batHeight / 2), batWidth, batHeight);
 
-          // 繪製右鼻翼兩側蝙蝠
           const rightX = rightCheekLower.x * canvasElement.width;
           const rightY = rightCheekLower.y * canvasElement.height;
           canvasCtx.drawImage(batDecor, rightX - (batWidth / 2), rightY - (batHeight / 2), batWidth, batHeight);
         }
       }
 
-      // 3. 繪製左下角雄哥
+      // 3. 繪製左下角雄哥（如果鏡像翻轉，需防止雄哥文字或圖案被反轉）
       const xiongWidth = canvasElement.width * 0.35;
       const xiongHeight = (xiongGe.naturalHeight / xiongGe.naturalWidth) * xiongWidth;
-      canvasCtx.drawImage(
-        xiongGe, 
-        canvasElement.width * 0.03, 
-        canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
-        xiongWidth, 
-        xiongHeight
-      );
+      
+      if (isMirrorOnSave) {
+        // 解除鏡像狀態專門繪製貼紙，確保雄哥永遠固定在畫面的左下角且方向正常
+        canvasCtx.restore();
+        canvasCtx.save();
+        canvasCtx.drawImage(
+          xiongGe, 
+          canvasElement.width * 0.03, 
+          canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
+          xiongWidth, 
+          xiongHeight
+        );
+      } else {
+        canvasCtx.drawImage(
+          xiongGe, 
+          canvasElement.width * 0.03, 
+          canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
+          xiongWidth, 
+          xiongHeight
+        );
+      }
 
       canvasCtx.restore();
     }
@@ -131,22 +147,30 @@
     });
     camera.start();
 
+    // 拍照按鈕：觸發鏡像運算並凍結畫面
     function takePhoto() {
-      isPaused = true;
-      xiongGe.style.display = 'none';
-      document.getElementById('shootBtn').style.display = 'none';
-      document.getElementById('retryBtn').style.display = 'block';
-      document.getElementById('downloadBtn').style.display = 'block';
+      isMirrorOnSave = true;
+      // 重新渲染一次帶有鏡像的效果
+      faceMesh.send({image: videoElement}).then(() => {
+        isPaused = true; // 凍結畫面
+        xiongGe.style.display = 'none';
+        document.getElementById('shootBtn').style.display = 'none';
+        document.getElementById('retryBtn').style.display = 'block';
+        document.getElementById('downloadBtn').style.display = 'block';
+      });
     }
 
+    // 重拍按鈕
     function resetCamera() {
       isPaused = false;
+      isMirrorOnSave = false;
       xiongGe.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
       document.getElementById('retryBtn').style.display = 'none';
       document.getElementById('downloadBtn').style.display = 'none';
     }
 
+    // 下載照片
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節變身合照.png';
