@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>萬聖節 AI 魔法鏡</title>
-  <!-- 引入 Google MediaPipe 官方套件 -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
   <style>
@@ -62,11 +61,9 @@
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
 
-    // 預先載入相框圖片
     const frameImage = new Image();
     frameImage.src = 'frame.png';
 
-    // 特效圖片清單
     const effectSources = [
       'bat.png',
       'pumpkin.png',
@@ -75,7 +72,6 @@
       'candy.png'
     ];
 
-    // 頂部隨機標語清單
     const slogans = [
       "🎃 不給發票就搗蛋！",
       "👻 雲端發票 萬聖神奇！",
@@ -88,7 +84,6 @@
     let currentDecorFileName = '';
     let currentSlogan = '';
 
-    // 隨機切換特效圖案與標語
     function setRandomEffectAndSlogan() {
       const randomEffectIndex = Math.floor(Math.random() * effectSources.length);
       currentDecorFileName = effectSources[randomEffectIndex];
@@ -103,9 +98,15 @@
     let isPaused = false;
     let camera = null;
 
-    // 平滑座標歷史紀錄（防抖動）
     const prevPositions = [];
-    const SMOOTHING = 0.4;
+    const SMOOTHING = 0.04;
+
+    // 臉部輪廓節點（用於繪製美顏 Mask 區域）
+    const faceOvalIndices = [
+      10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
+      397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
+      172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109
+    ];
 
     function onResults(results) {
       if (isPaused) return;
@@ -116,26 +117,41 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 水平翻轉畫布（校正前鏡頭視角）
+      // 水平翻轉畫布
       canvasCtx.translate(canvasElement.width, 0);
       canvasCtx.scale(-1, 1);
 
-      // -------------------------------------------------------------
-      // ✨ 美顏與濾鏡設定（僅套用於鏡頭畫面，不影響相框與貼紙）
-      // 1. blur(0.8px): 微柔膚，磨平細節
-      // 2. brightness(108%): 提亮膚色
-      // 3. contrast(102%): 補回對比度，保持立體感
-      // 4. saturate(110%): 讓氣色看起來更紅潤
-      // -------------------------------------------------------------
-      canvasCtx.filter = 'blur(10.0px) brightness(106%) contrast(108%) saturate(108%)';
-
-      // 1. 繪製鏡頭視角（已帶有美顏濾鏡）
+      // 1. 先畫清楚的背景（無濾鏡）
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 繪製完人臉後重置濾鏡，確保貼紙、相框與文字清晰不模糊
-      canvasCtx.filter = 'none';
+      // 2. 僅針對「人臉區域」繪製帶有美顏濾鏡的圖層
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        results.multiFaceLandmarks.forEach((landmarks) => {
+          canvasCtx.save();
+          
+          // 建立人臉輪廓遮罩 (Clip Path)
+          canvasCtx.beginPath();
+          faceOvalIndices.forEach((index, idx) => {
+            const x = landmarks[index].x * canvasElement.width;
+            const y = landmarks[index].y * canvasElement.height;
+            if (idx === 0) {
+              canvasCtx.moveTo(x, y);
+            } else {
+              canvasCtx.lineTo(x, y);
+            }
+          });
+          canvasCtx.closePath();
+          canvasCtx.clip(); // 裁切，接下來繪製的內容只會在臉部範圍內
 
-      // 2. 人臉辨識與特效貼圖（使用左臉 187，右臉 411）
+          // 只在臉部區域套用美顏濾鏡（柔膚 + 提亮 + 氣色）
+          canvasCtx.filter = 'blur(1.2px) brightness(108%) contrast(102%) saturate(110%)';
+          canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+          
+          canvasCtx.restore();
+        });
+      }
+
+      // 3. 人臉貼圖繪製（使用左臉 187，右臉 411）
       if (results.multiFaceLandmarks && currentDecor.complete && currentDecor.naturalWidth !== 0) {
         let baseScale = 0.08;
         if (currentDecorFileName === 'bat.png') {
@@ -189,15 +205,15 @@
         prevPositions.length = 0;
       }
 
-      // 恢復畫布正向（讓相框和文字維持正向顯示）
+      // 恢復畫布正向
       canvasCtx.restore();
 
-      // 3. 繪製相框
+      // 4. 繪製相框
       if (frameImage.complete && frameImage.naturalWidth !== 0) {
         canvasCtx.drawImage(frameImage, 0, 0, canvasElement.width, canvasElement.height);
       }
 
-      // 4. 繪製頂部隨機標語文字（大字體 + 位置下移）
+      // 5. 繪製頂部隨機標語文字
       if (currentSlogan) {
         canvasCtx.save();
         canvasCtx.font = "bold " + (canvasElement.width * 0.070) + "px sans-serif";
@@ -209,7 +225,6 @@
       }
     }
 
-    // 初始化人臉追蹤
     const faceMesh = new FaceMesh({locateFile: (file) => {
       return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
     }});
@@ -221,7 +236,6 @@
     });
     faceMesh.onResults(onResults);
 
-    // 啟動鏡頭
     camera = new Camera(videoElement, {
       onFrame: async () => {
         if (!isPaused) await faceMesh.send({image: videoElement});
@@ -231,7 +245,6 @@
     });
     camera.start();
 
-    // 拍照按鈕
     function takePhoto() {
       isPaused = true;
 
@@ -240,7 +253,6 @@
       document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 重拍按鈕
     function resetCamera() {
       setRandomEffectAndSlogan();
       prevPositions.length = 0;
@@ -250,7 +262,6 @@
       document.getElementById('downloadBtn').style.display = 'none';
     }
 
-    // 保存照片
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節變身合照.png';
