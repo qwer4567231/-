@@ -39,7 +39,7 @@
     <button id="downloadBtn" class="btn-download" onclick="downloadPhoto()">💾 保存照片</button>
   </div>
 
-  <!-- 臉部蝙蝠特效圖案 -->
+  <!-- 臉部蝙蝠特效圖案 (單隻蝙蝠) -->
   <img id="bat_decor" src="bat.png" style="display:none;">
 
   <script>
@@ -64,12 +64,12 @@
       // 1. 繪製鏡頭畫面
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 2. 人臉辨識：定位左右臉頰
+      // 2. 人臉辨識：定位靠近鼻孔平行的兩側臉頰
       if (results.multiFaceLandmarks) {
         for (const landmarks of results.multiFaceLandmarks) {
-          // 關鍵點位：左臉頰蘋果肌 (Index 117)、右臉頰蘋果肌 (Index 346)
-          const leftCheek = landmarks[117];
-          const rightCheek = landmarks[346];
+          // 修改關鍵點位：左鼻翼兩側臉頰 (Index 205)、右鼻翼兩側臉頰 (Index 425)
+          const leftCheekLower = landmarks[205];
+          const rightCheekLower = landmarks[425];
 
           // 眼睛距離用來動態計算蝙蝠大小
           const leftEye = landmarks[33];
@@ -79,18 +79,18 @@
             (rightEye.y - leftEye.y) * canvasElement.height
           );
 
-          // 計算單隻蝙蝠寬度（約為眼距的 0.45 倍，與照片效果一致）
-          const batWidth = eyeDistance * 0.45;
+          // 計算單隻蝙蝠寬度
+          const batWidth = eyeDistance * 0.42;
           const batHeight = (batDecor.naturalHeight / batDecor.naturalWidth) * batWidth;
 
-          // 繪製左臉頰蝙蝠
-          const leftX = leftCheek.x * canvasElement.width;
-          const leftY = leftCheek.y * canvasElement.height;
+          // 繪製左鼻翼兩側蝙蝠
+          const leftX = leftCheekLower.x * canvasElement.width;
+          const leftY = leftCheekLower.y * canvasElement.height;
           canvasCtx.drawImage(batDecor, leftX - (batWidth / 2), leftY - (batHeight / 2), batWidth, batHeight);
 
-          // 繪製右臉頰蝙蝠
-          const rightX = rightCheek.x * canvasElement.width;
-          const rightY = rightCheek.y * canvasElement.height;
+          // 繪製右鼻翼兩側蝙蝠
+          const rightX = rightCheekLower.x * canvasElement.width;
+          const rightY = rightCheekLower.y * canvasElement.height;
           canvasCtx.drawImage(batDecor, rightX - (batWidth / 2), rightY - (batHeight / 2), batWidth, batHeight);
         }
       }
