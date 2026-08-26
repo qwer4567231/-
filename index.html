@@ -11,9 +11,37 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: sans-serif; background: #1a1a1a; color: #fff; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 15px; }
     h2 { margin-bottom: 10px; color: #ff9d00; }
-    .camera-container { position: relative; width: 100%; max-width: 420px; aspect-ratio: 9/16; border-radius: 16px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    
+    .camera-container { 
+      position: relative; 
+      width: 100%; 
+      max-width: 420px; 
+      aspect-ratio: 9/16; 
+      border-radius: 16px; 
+      overflow: hidden; 
+      background: #000; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+    }
+    
     video { display: none; }
-    canvas { width: 100%; height: 100%; object-fit: contain; position: absolute; top: 0; left: 0; background-color: #000; }
+    
+    /* 預覽時預設加入鏡像效果（像照鏡子一樣） */
+    canvas { 
+      width: 100%; 
+      height: 100%; 
+      object-fit: contain; 
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      background-color: #000;
+      transform: scaleX(-1); /* 照鏡子效果 */
+    }
+
+    /* 拍照凍結後移除 CSS 鏡像，顯示真實拍攝照片 */
+    canvas.no-mirror {
+      transform: scaleX(1) !important;
+    }
+    
     .sticker-overlay { position: absolute; bottom: 12px; left: 12px; width: 35%; pointer-events: none; z-index: 10; }
     .btn-group { margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 420px; }
     button { flex: 1; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
@@ -50,7 +78,6 @@
     const xiongGe = document.getElementById('xiong_ge');
 
     let isPaused = false;
-    let isMirrorOnSave = false; // 控制是否在最後產圖時進行鏡像翻轉
     let camera = null;
 
     function onResults(results) {
@@ -62,16 +89,10 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 若觸發拍照，進行水平鏡像翻轉
-      if (isMirrorOnSave) {
-        canvasCtx.translate(canvasElement.width, 0);
-        canvasCtx.scale(-1, 1);
-      }
-
-      // 1. 繪製鏡頭畫面
+      // 1. 繪製鏡頭原圖（畫布內部保持標準真實視角）
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 2. 人臉辨識：定位鼻孔平行的臉頰兩側
+      // 2. 人臉辨識：定位靠近鼻孔平行的兩側臉頰
       if (results.multiFaceLandmarks) {
         for (const landmarks of results.multiFaceLandmarks) {
           const leftCheekLower = landmarks[205];
@@ -97,30 +118,16 @@
         }
       }
 
-      // 3. 繪製左下角雄哥（如果鏡像翻轉，需防止雄哥文字或圖案被反轉）
+      // 3. 繪製左下角雄哥
       const xiongWidth = canvasElement.width * 0.35;
       const xiongHeight = (xiongGe.naturalHeight / xiongGe.naturalWidth) * xiongWidth;
-      
-      if (isMirrorOnSave) {
-        // 解除鏡像狀態專門繪製貼紙，確保雄哥永遠固定在畫面的左下角且方向正常
-        canvasCtx.restore();
-        canvasCtx.save();
-        canvasCtx.drawImage(
-          xiongGe, 
-          canvasElement.width * 0.03, 
-          canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
-          xiongWidth, 
-          xiongHeight
-        );
-      } else {
-        canvasCtx.drawImage(
-          xiongGe, 
-          canvasElement.width * 0.03, 
-          canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
-          xiongWidth, 
-          xiongHeight
-        );
-      }
+      canvasCtx.drawImage(
+        xiongGe, 
+        canvasElement.width * 0.03, 
+        canvasElement.height - xiongHeight - (canvasElement.height * 0.02), 
+        xiongWidth, 
+        xiongHeight
+      );
 
       canvasCtx.restore();
     }
@@ -147,30 +154,27 @@
     });
     camera.start();
 
-    // 拍照按鈕：觸發鏡像運算並凍結畫面
+    // 拍照按鈕：凍結畫面並移除 CSS 鏡像（還原真實照片視角）
     function takePhoto() {
-      isMirrorOnSave = true;
-      // 重新渲染一次帶有鏡像的效果
-      faceMesh.send({image: videoElement}).then(() => {
-        isPaused = true; // 凍結畫面
-        xiongGe.style.display = 'none';
-        document.getElementById('shootBtn').style.display = 'none';
-        document.getElementById('retryBtn').style.display = 'block';
-        document.getElementById('downloadBtn').style.display = 'block';
-      });
+      isPaused = true;
+      canvasElement.classList.add('no-mirror'); // 移除鏡像
+      xiongGe.style.display = 'none';
+      document.getElementById('shootBtn').style.display = 'none';
+      document.getElementById('retryBtn').style.display = 'block';
+      document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 重拍按鈕
+    // 重拍按鈕：恢復鏡樣預覽
     function resetCamera() {
       isPaused = false;
-      isMirrorOnSave = false;
+      canvasElement.classList.remove('no-mirror'); // 恢復預覽鏡像
       xiongGe.style.display = 'block';
       document.getElementById('shootBtn').style.display = 'block';
       document.getElementById('retryBtn').style.display = 'none';
       document.getElementById('downloadBtn').style.display = 'none';
     }
 
-    // 下載照片
+    // 下載照片（輸出未鏡像的真實照片）
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節變身合照.png';
