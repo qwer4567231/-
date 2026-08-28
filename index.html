@@ -47,7 +47,7 @@
 
   <h2>🎃 萬聖節 AI 魔法鏡 🎃</h2>
 
-  <div class="camera-container">
+  <div class="camera-container" onclick="triggerAutoFocus()">
     <video id="video" playsinline></video>
     <canvas id="output_canvas"></canvas>
   </div>
@@ -64,11 +64,9 @@
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
 
-    // 預先載入相框圖片
     const frameImage = new Image();
     frameImage.src = 'frame.png';
 
-    // 特效圖片清單
     const effectSources = [
       'bat.png',
       'pumpkin.png',
@@ -77,7 +75,6 @@
       'candy.png'
     ];
 
-    // 頂部隨機標語清單
     const slogans = [
       "🎃 不給發票就搗蛋！",
       "👻 雲端發票 萬聖神奇！",
@@ -90,7 +87,6 @@
     let currentDecorFileName = '';
     let currentSlogan = '';
 
-    // 隨機切換特效圖案與標語
     function setRandomEffectAndSlogan() {
       const randomEffectIndex = Math.floor(Math.random() * effectSources.length);
       currentDecorFileName = effectSources[randomEffectIndex];
@@ -104,10 +100,10 @@
 
     let isPaused = false;
     let camera = null;
-    let facingMode = 'user'; // 'user' 為前鏡頭, 'environment' 為後鏡頭
+    let facingMode = 'user';
 
-    // 平滑座標歷史紀錄（防抖動）
     const prevPositions = [];
+    // 💡 已依要求修改為 0.15
     const SMOOTHING = 0.15;
 
     function onResults(results) {
@@ -119,17 +115,15 @@
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-      // 只有「前鏡頭」才需要水平翻轉（像鏡子一樣自然）
-      // 後鏡頭則維持正常方向
       if (facingMode === 'user') {
         canvasCtx.translate(canvasElement.width, 0);
         canvasCtx.scale(-1, 1);
       }
 
-      // 1. 繪製鏡頭視角
+      // 1. 繪製鏡頭畫面
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-      // 2. 人臉辨識與特效貼圖
+      // 2. 人臉辨識與貼圖
       if (results.multiFaceLandmarks && currentDecor.complete && currentDecor.naturalWidth !== 0) {
         let baseScale = 0.08;
         if (currentDecorFileName === 'bat.png') {
@@ -145,7 +139,6 @@
           const rightTargetX = landmarks[411].x * canvasElement.width;
           const rightTargetY = landmarks[411].y * canvasElement.height;
 
-          // 計算頭部傾斜角度
           const dx = rightTargetX - leftTargetX;
           const dy = rightTargetY - leftTargetY;
           const targetAngle = Math.atan2(dy, dx);
@@ -158,23 +151,26 @@
             };
           }
 
-          // 平滑化算法
-          prevPositions[index].lx += (leftTargetX - prevPositions[index].lx) * SMOOTHING;
-          prevPositions[index].ly += (leftTargetY - prevPositions[index].ly) * SMOOTHING;
-          prevPositions[index].rx += (rightTargetX - prevPositions[index].rx) * SMOOTHING;
-          prevPositions[index].ry += (rightTargetY - prevPositions[index].ry) * SMOOTHING;
-          prevPositions[index].angle += (targetAngle - prevPositions[index].angle) * SMOOTHING;
-
           const p = prevPositions[index];
 
-          // 繪製左臉貼紙
+          p.lx += (leftTargetX - p.lx) * SMOOTHING;
+          p.ly += (leftTargetY - p.ly) * SMOOTHING;
+          p.rx += (rightTargetX - p.rx) * SMOOTHING;
+          p.ry += (rightTargetY - p.ry) * SMOOTHING;
+
+          let diffAngle = targetAngle - p.angle;
+          while (diffAngle < -Math.PI) diffAngle += Math.PI * 2;
+          while (diffAngle > Math.PI) diffAngle -= Math.PI * 2;
+          p.angle += diffAngle * (SMOOTHING * 0.8);
+
+          // 左臉貼紙
           canvasCtx.save();
           canvasCtx.translate(p.lx, p.ly);
           canvasCtx.rotate(p.angle);
           canvasCtx.drawImage(currentDecor, -FIX_WIDTH / 2, -FIX_HEIGHT / 2, FIX_WIDTH, FIX_HEIGHT);
           canvasCtx.restore();
 
-          // 繪製右臉貼紙
+          // 右臉貼紙
           canvasCtx.save();
           canvasCtx.translate(p.rx, p.ry);
           canvasCtx.rotate(p.angle);
@@ -185,7 +181,6 @@
         prevPositions.length = 0;
       }
 
-      // 恢復畫布正向（確保相框與文字不受鏡頭翻轉影響）
       canvasCtx.restore();
 
       // 3. 繪製相框
@@ -193,7 +188,7 @@
         canvasCtx.drawImage(frameImage, 0, 0, canvasElement.width, canvasElement.height);
       }
 
-      // 4. 繪製頂部隨機標語文字
+      // 4. 繪製標語
       if (currentSlogan) {
         canvasCtx.save();
         canvasCtx.font = "bold " + (canvasElement.width * 0.070) + "px sans-serif";
@@ -205,19 +200,18 @@
       }
     }
 
-    // 初始化人臉追蹤
     const faceMesh = new FaceMesh({locateFile: (file) => {
       return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
     }});
     faceMesh.setOptions({
       maxNumFaces: 3,
       refineLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.6
     });
     faceMesh.onResults(onResults);
 
-    // 啟動鏡頭函式
+    // 啟動鏡頭與自動對焦設定
     function startCameraMode(mode) {
       if (camera) {
         camera.stop();
@@ -231,29 +225,45 @@
         width: 1280,
         height: 720
       });
-      camera.start();
+      
+      camera.start().then(() => {
+        // 💡 嘗試向鏡頭發送連續對焦 (Continuous Focus) 請求
+        setTimeout(() => {
+          triggerAutoFocus();
+        }, 800);
+      });
     }
 
-    // 預設先啟動前鏡頭
+    // 💡 觸發相機自動對焦機制
+    function triggerAutoFocus() {
+      if (videoElement.srcObject) {
+        const track = videoElement.srcObject.getVideoTracks()[0];
+        if (track && typeof track.getCapabilities === 'function') {
+          const capabilities = track.getCapabilities();
+          if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            track.applyConstraints({
+              advanced: [{ focusMode: 'continuous' }]
+            }).catch(err => console.log('Focus constraint warning:', err));
+          }
+        }
+      }
+    }
+
     startCameraMode(facingMode);
 
-    // 切換前後鏡頭
     function switchCamera() {
       facingMode = (facingMode === 'user') ? 'environment' : 'user';
       startCameraMode(facingMode);
     }
 
-    // 拍照按鈕
     function takePhoto() {
       isPaused = true;
-
       document.getElementById('shootBtn').style.display = 'none';
       document.getElementById('switchBtn').style.display = 'none';
       document.getElementById('retryBtn').style.display = 'block';
       document.getElementById('downloadBtn').style.display = 'block';
     }
 
-    // 重拍按鈕
     function resetCamera() {
       setRandomEffectAndSlogan();
       prevPositions.length = 0;
@@ -264,7 +274,6 @@
       document.getElementById('downloadBtn').style.display = 'none';
     }
 
-    // 保存照片
     function downloadPhoto() {
       const link = document.createElement('a');
       link.download = '萬聖節變身合照.png';
