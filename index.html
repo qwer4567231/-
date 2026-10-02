@@ -72,7 +72,8 @@
 </head>
 
 <body>
- 
+  <h2>🎃 萬聖節 AI 魔法鏡 🎃</h2>
+
   <div class="camera-container" onclick="triggerAutoFocus()">
     <video id="video" playsinline></video>
     <canvas id="output_canvas"></canvas>
@@ -107,11 +108,11 @@ headgearImage.onerror = () => {
 };
 
 const slogans = [
-  "不給發票就搗蛋！",
-  "雲端發票 萬聖神奇！",
-  "載具存發票 糖果滿滿拿",
-  "租稅魔法 快樂過萬聖",
-  "發票存雲端 中獎最靈驗"
+  "🎃 不給發票就搗蛋！",
+  "👻 雲端發票 萬聖神奇！",
+  "🍬 載具存發票 糖果滿滿拿",
+  "🧙‍♀️ 租稅魔法 快樂過萬聖",
+  "✨ 發票存雲端 中獎最靈驗"
 ];
 
 let currentSlogan = slogans[Math.floor(Math.random() * slogans.length)];
@@ -133,10 +134,14 @@ const HOLE_CENTER_Y = 0.651;
 
 // 頭套整體寬度 = 人臉寬度 × 此倍率
 const HOLE_WIDTH_RATIO = 0.603;
-const FACE_FIT_PADDING = 1.18;
+const HOLE_HEIGHT_RATIO = 0.332;
+
+// 洞口要比真人臉稍微寬鬆一點
+const FACE_WIDTH_PADDING = 1.12;
+const FACE_HEIGHT_PADDING = 1.18;
 
 // 頭套上下微調：正值往下、負值往上
-const HEADGEAR_OFFSET_Y = -0.06;
+const HEADGEAR_OFFSET_Y = 0.00;
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -152,13 +157,10 @@ function smoothAngle(current, target, amount) {
 function drawHeadgear(landmarks, index) {
   if (!headgearReady || headgearImage.naturalWidth === 0) return;
 
-  // 臉左右邊界
+  // 臉的左右、額頭、下巴
   const left = landmarks[234];
   const right = landmarks[454];
-
-  // 眼睛附近與下巴，拿來找穩定的臉部中心
-  const leftEye = landmarks[33];
-  const rightEye = landmarks[263];
+  const forehead = landmarks[10];
   const chin = landmarks[152];
 
   const lx = left.x * canvasElement.width;
@@ -166,36 +168,46 @@ function drawHeadgear(landmarks, index) {
   const rx = right.x * canvasElement.width;
   const ry = right.y * canvasElement.height;
 
-  const lex = leftEye.x * canvasElement.width;
-  const ley = leftEye.y * canvasElement.height;
-  const rex = rightEye.x * canvasElement.width;
-  const rey = rightEye.y * canvasElement.height;
+  const fx = forehead.x * canvasElement.width;
+  const fy = forehead.y * canvasElement.height;
+  const cx = chin.x * canvasElement.width;
+  const cy = chin.y * canvasElement.height;
 
-  const chinX = chin.x * canvasElement.width;
-  const chinY = chin.y * canvasElement.height;
-
-  // 每個人的臉寬不同，也會因為靠近/遠離鏡頭而變化。
+  // 真人臉的實際寬、高
   const faceWidth = Math.hypot(rx - lx, ry - ly);
+  const faceHeight = Math.hypot(cx - fx, cy - fy);
 
-  // 頭部左右傾斜角度。
+  // 頭部左右傾斜
   const targetAngle = Math.atan2(ry - ly, rx - lx);
 
-  // 讓「透明臉洞寬度」自動比真人臉稍大。
-  // drawW * HOLE_WIDTH_RATIO ≈ faceWidth * FACE_FIT_PADDING
-  const targetW = (faceWidth * FACE_FIT_PADDING) / HOLE_WIDTH_RATIO;
-  const targetH =
-    targetW * (headgearImage.naturalHeight / headgearImage.naturalWidth);
+  const imageAspect =
+    headgearImage.naturalHeight / headgearImage.naturalWidth;
 
-  // 眼睛中點到下巴之間取一個中心，會比單純用臉框中心更穩。
-  const eyeMidX = (lex + rex) * 0.5;
-  const eyeMidY = (ley + rey) * 0.5;
+  /*
+    你的頭套透明洞比較「矮」。
+    以前只用臉寬算尺寸，所以洞口高度不夠，
+    才會只套到鼻子／嘴巴附近。
 
-  const faceCenterX = (eyeMidX + chinX) * 0.5;
-  const faceCenterY = eyeMidY * 0.42 + chinY * 0.58;
+    現在同時用「臉寬」與「臉高」計算，
+    取需要比較大的那個尺寸，確保整張臉都放得進洞裡。
+  */
+  const widthFit =
+    (faceWidth * FACE_WIDTH_PADDING) / HOLE_WIDTH_RATIO;
 
-  // 把頭套透明洞的中心，對準真人臉中心。
+  const heightFit =
+    (faceHeight * FACE_HEIGHT_PADDING) /
+    (HOLE_HEIGHT_RATIO * imageAspect);
+
+  const targetW = Math.max(widthFit, heightFit);
+  const targetH = targetW * imageAspect;
+
+  // 真人臉中心：額頭與下巴中點
+  const faceCenterX = (fx + cx) * 0.5;
+  const faceCenterY = (fy + cy) * 0.5;
+
+  // 透明洞中心對準真人臉中心
   const targetX = faceCenterX;
-  const targetY = faceCenterY + faceWidth * HEADGEAR_OFFSET_Y;
+  const targetY = faceCenterY + faceHeight * HEADGEAR_OFFSET_Y;
 
   if (!trackedFaces[index]) {
     trackedFaces[index] = {
@@ -208,6 +220,7 @@ function drawHeadgear(landmarks, index) {
   }
 
   const t = trackedFaces[index];
+
   t.x = lerp(t.x, targetX, SMOOTHING);
   t.y = lerp(t.y, targetY, SMOOTHING);
   t.w = lerp(t.w, targetW, SMOOTHING);
@@ -218,7 +231,6 @@ function drawHeadgear(landmarks, index) {
   canvasCtx.translate(t.x, t.y);
   canvasCtx.rotate(t.angle);
 
-  // 不是以圖片中心對齊，而是以「透明臉洞中心」對齊真人臉。
   canvasCtx.drawImage(
     headgearImage,
     -t.w * HOLE_CENTER_X,
@@ -358,7 +370,7 @@ function resetCamera() {
 
 function downloadPhoto() {
   const link = document.createElement('a');
-  link.download = '租稅FUN一下AI特效照.png';
+  link.download = '萬聖節熊熊頭套合照.png';
   link.href = canvasElement.toDataURL('image/png');
   link.click();
 }
